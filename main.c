@@ -38,6 +38,9 @@ typedef enum {
     RM_SCALEVERT,
     RM_SQUARE,
     RM_NODOUBLE,
+    RM_LAST_PLUS_ONE,
+    RM_QSCALE,
+    RM_RSCALE
 } RenderMode;
 
 typedef struct {
@@ -98,6 +101,15 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
         }
         if (platform.keys['N'] == gbKeyState_Released) {
             app.mode = RM_NODOUBLE;
+        }
+        if (platform.keys['W'] == gbKeyState_Released) {
+            app.mode = RM_LAST_PLUS_ONE;
+        }
+        if (platform.keys['E'] == gbKeyState_Released) {
+            app.mode = RM_QSCALE;
+        }
+        if (platform.keys['R'] == gbKeyState_Released) {
+            app.mode = RM_RSCALE;
         }
 
         //render
@@ -176,6 +188,57 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
                     if (i != last_i) {
                         x = (x + square_xs[i])/2;
                         y = (y + square_ys[i])/2;
+                    }
+                    last_i = i;
+                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_LAST_PLUS_ONE: {
+                isize last_i = 0;
+                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    if (i == (last_i + 2) % 4) {
+                        x = (x + square_xs[i])/2;
+                        y = (y + square_ys[i])/2;
+                    }
+                    last_i = i;
+                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_QSCALE: {
+                isize last_i = 0;
+                double scale = 4*(sin((double)counter) + 1);
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    if (i == (last_i + 2) % 4) {
+                        x = (x + scale*square_xs[i])/(scale+1);
+                        y = (y + square_ys[i])/2;
+                    }
+                    last_i = i;
+                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_RSCALE: {
+                isize last_i = 0;
+                double scale = 4*(sin((double)counter) + 1.1);
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    if (i != last_i && i != last_i + 1) {
+                        x = (scale*x + square_xs[i])/(scale+1);
+                        y = (scale*y + square_ys[i])/(scale+1);
                     }
                     last_i = i;
                     putpixel(&platform, x, y, get_color(i, app.enable_colors));
