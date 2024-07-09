@@ -27,6 +27,7 @@ u32 get_color(isize i, bool enable_colors) {
             break;case 1: return 0xFF00FF00;
             break;case 2: return 0xFF0000FF;
             break;case 3: return 0xFFFFFFFF;
+            break;case 4: return 0xFFFF00FF;
         }
     }
     return 0xFFFFFFFF;
@@ -44,6 +45,7 @@ typedef enum {
     RM_RSCALE,
     RM_ZSCALE,
     RM_PENTA,
+    RM_PENTA_NODOUBLE
 } RenderMode;
 
 typedef struct {
@@ -136,6 +138,9 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
         }
         if (platform.keys['P'] == gbKeyState_Released) {
             app.mode = RM_PENTA;
+        }
+        if (platform.keys['O'] == gbKeyState_Released) {
+            app.mode = RM_PENTA_NODOUBLE;
         }
 
         //render
@@ -295,6 +300,25 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
                     isize i = pcg32_boundedrand(5);
                     x = (x + scale*penta_xs[i])/(scale+1);
                     y = (y + scale*penta_ys[i])/(scale+1);
+                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
+                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    }
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_PENTA_NODOUBLE: {
+                isize last_i = 0;
+                penta_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(5);
+                    if (i != last_i) {
+                        x = (x + penta_xs[i])/2;
+                        y = (y + penta_ys[i])/2;
+                    }
+                    last_i = i;
                     if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
                         putpixel(&platform, x, y, get_color(i, app.enable_colors));
                     }

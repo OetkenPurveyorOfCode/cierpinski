@@ -17,7 +17,8 @@ A C Sierpinski thingy
 | E   | Quad Scale I  |
 | R   | Quad Scale II |
 | U   | Quad Vertscale|
-| P   | Pentagon      |
+| P   | Penta Mode    |
+| O   | Penta Nodouble|
 
 ### Scale mode (Press S)
 ![Sierpinski Fractal](s.png)
@@ -37,6 +38,9 @@ A C Sierpinski thingy
 ### Quadscale II mode (Press R)
 ![Sierpinski Fractal](r.png)
 
+### Penta Nodouble (Press O)
+![Sierpinski Fractal](o.png)
+
 ## Building
 
-Run the `build.bat` file.
+Look at the `build.bat` file.
