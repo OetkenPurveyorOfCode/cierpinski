@@ -16,6 +16,8 @@ A C Sierpinski thingy
 | W   | Last+2 Mode   |
 | E   | Quad Scale I  |
 | R   | Quad Scale II |
+| U   | Quad Vertscale|
+| P   | Pentagon      |
 
 ### Scale mode (Press S)
 ![Sierpinski Fractal](s.png)

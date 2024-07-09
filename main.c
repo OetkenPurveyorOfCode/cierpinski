@@ -6,10 +6,11 @@
 #include "pcg_basic.c"
 #include <math.h>
 #include <stdbool.h>
+#include <assert.h>
 
 void putpixel(gbPlatform* platform, isize x, isize y, u32 color) {
-    GB_ASSERT(0 <= x && x < platform->window_width);
-    GB_ASSERT(0 <= y && y < platform->window_height);
+    assert(0 <= x && x < platform->window_width);
+    assert(0 <= y && y < platform->window_height);
     ((u32*)platform->sw_framebuffer.memory)[platform->window_width*y+x] = color;
 }
 
@@ -40,7 +41,9 @@ typedef enum {
     RM_NODOUBLE,
     RM_LAST_PLUS_ONE,
     RM_QSCALE,
-    RM_RSCALE
+    RM_RSCALE,
+    RM_ZSCALE,
+    RM_PENTA,
 } RenderMode;
 
 typedef struct {
@@ -48,7 +51,11 @@ typedef struct {
     bool enable_colors;
 } App;
 
+#ifdef MAIN 
+int main(void) {
+#else
 int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int       nShowCmd) { 
+#endif
     App app = {
         .mode=RM_LEFT_RIGHT, .enable_colors=true,
     };
@@ -63,6 +70,13 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
     double ys[] = {0, platform.window_height-1, 0};
     double square_xs[] = {0, 0,                      platform.window_width, platform.window_width };
     double square_ys[] = {0, platform.window_height, 0,                     platform.window_height};
+    double r = gb_min(platform.window_width/2, platform.window_height/2);
+    double penta_xs[5];
+    double penta_ys[5];
+    for (int i = 0; i < 5; i++) {
+        penta_xs[i] = r*cosf(6.28/5*i)+ platform.window_width/2;
+        penta_ys[i] = r*sinf(6.28/5*i)+ platform.window_height/2;
+    }
     double x = 0;
     double y = 0;
     double counter = 0;
@@ -78,6 +92,12 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
             square_ys[1] = square_ys[3] = platform.window_height;
             x = 0;
             y = 0;
+
+            double r = gb_min(platform.window_width/2, platform.window_height/2);
+            for (int i = 0; i < 5; i++) {
+                penta_xs[i] = r*cosf(6.28/5*i)+ platform.window_width/2;
+                penta_ys[i] = r*sinf(6.28/5*i)+ platform.window_height/2;
+            }
             clear(platform);
         }
         //input
@@ -110,6 +130,12 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
         }
         if (platform.keys['R'] == gbKeyState_Released) {
             app.mode = RM_RSCALE;
+        }
+        if (platform.keys['U'] == gbKeyState_Released) {
+            app.mode = RM_ZSCALE;
+        }
+        if (platform.keys['P'] == gbKeyState_Released) {
+            app.mode = RM_PENTA;
         }
 
         //render
@@ -242,6 +268,36 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
                     }
                     last_i = i;
                     putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_ZSCALE: {
+                double scale = 4*(sin((double)counter) + 1);
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    x = (x + scale*square_xs[i])/(scale+1);
+                    y = (y + scale*square_ys[i])/(scale+1);
+                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
+                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    }
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_PENTA: {
+                double scale = 4*(sin((double)counter) + 1);
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(5);
+                    x = (x + scale*penta_xs[i])/(scale+1);
+                    y = (y + scale*penta_ys[i])/(scale+1);
+                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
+                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    }
                     putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
                 };
                 counter += 1e-3;
