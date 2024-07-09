@@ -14,7 +14,7 @@ A C Sierpinski thingy
 ## Quad mode (Press Q)
 ![Sierpinski Fractal](q.png)
 
-## Nodouble mode (Press Q)
+## Nodouble mode (Press N)
 ![Sierpinski Fractal](n.png)
 
 and some more (like colorless (C), scale vertices (V), etc.)...
