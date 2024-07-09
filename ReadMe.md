@@ -11,7 +11,13 @@ A C Sierpinski thingy
 ## Scale coord mode (Press T)
 ![Sierpinski Fractal](t.png)
 
-and some more (like colorless, scale vertices)...
+## Quad mode (Press Q)
+![Sierpinski Fractal](q.png)
+
+## Nodouble mode (Press Q)
+![Sierpinski Fractal](n.png)
+
+and some more (like colorless (C), scale vertices (V), etc.)...
 ## Building
 
 Run the `build.bat` file.

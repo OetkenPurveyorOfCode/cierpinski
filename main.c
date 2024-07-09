@@ -25,6 +25,7 @@ u32 get_color(isize i, bool enable_colors) {
             break;case 0: return 0xFFFF0000;
             break;case 1: return 0xFF00FF00;
             break;case 2: return 0xFF0000FF;
+            break;case 3: return 0xFFFFFFFF;
         }
     }
     return 0xFFFFFFFF;
@@ -35,7 +36,8 @@ typedef enum {
     RM_SCALE,
     RM_SCALECOORD,
     RM_SCALEVERT,
-    RM_PLASMA,
+    RM_SQUARE,
+    RM_NODOUBLE,
 } RenderMode;
 
 typedef struct {
@@ -45,7 +47,7 @@ typedef struct {
 
 int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int       nShowCmd) { 
     App app = {
-        .mode=RM_LEFT_RIGHT,
+        .mode=RM_LEFT_RIGHT, .enable_colors=true,
     };
     gbPlatform platform = {0};
     gb_platform_init_with_software(&platform, "Cierpinski", 800, 600, gbWindow_Resizable);
@@ -56,6 +58,8 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
     i32 old_window_width = platform.window_width;
     double xs[] = {0, platform.window_width/2, platform.window_width-1};
     double ys[] = {0, platform.window_height-1, 0};
+    double square_xs[] = {0, 0,                      platform.window_width, platform.window_width };
+    double square_ys[] = {0, platform.window_height, 0,                     platform.window_height};
     double x = 0;
     double y = 0;
     double counter = 0;
@@ -67,6 +71,8 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
             xs[1] = platform.window_width / 2;
             xs[2] = platform.window_width - 1;
             ys[1] = platform.window_height - 1;
+            square_xs[2] = square_xs[3] = platform.window_width;
+            square_ys[1] = square_ys[3] = platform.window_height;
             x = 0;
             y = 0;
             clear(platform);
@@ -86,6 +92,12 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
         }
         if (platform.keys['C'] == gbKeyState_Released) {
             app.enable_colors = !app.enable_colors;
+        }
+        if (platform.keys['Q'] == gbKeyState_Released) {
+            app.mode = RM_SQUARE;
+        }
+        if (platform.keys['N'] == gbKeyState_Released) {
+            app.mode = RM_NODOUBLE;
         }
 
         //render
@@ -136,6 +148,36 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
                     isize i = pcg32_boundedrand(3);
                     x = (x + scale*xs[i])/(1+scale);
                     y = (y + scale*ys[i])/(1+scale);
+                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_SQUARE: {
+                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    x = (x + square_xs[i])/2;
+                    y = (y + square_ys[i])/2;
+                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
+                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+                };
+                counter += 1e-3;
+                gb_platform_update(&platform);
+                gb_platform_display(&platform);
+            }
+            break;case RM_NODOUBLE: {
+                isize last_i = 0;
+                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
+                for(isize it = 0; it < 10000; it++) {
+                    isize i = pcg32_boundedrand(4);
+                    if (i != last_i) {
+                        x = (x + square_xs[i])/2;
+                        y = (y + square_ys[i])/2;
+                    }
+                    last_i = i;
                     putpixel(&platform, x, y, get_color(i, app.enable_colors));
                     putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
                 };
