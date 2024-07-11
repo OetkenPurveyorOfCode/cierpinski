@@ -1,3 +1,6 @@
+#define TINYCOLORMAP_IMPLEMENTATION
+#include "tinycolormap.h"
+
 #define GB_IMPLEMENTATION
 #define GB_PLATFORM
 #define GB_STATIC
@@ -5,8 +8,7 @@
 #include "pcg_basic.h"
 #include "pcg_basic.c"
 
-#define TINYCOLORMAP_IMPLEMENTATION
-#include "tinycolormap.h"
+
 #include <math.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -70,7 +72,7 @@ typedef struct {
     double speed;
 } App;
 
-void init_vertices(gbPlatform* platform, double xs[static MAXVERTICES], double ys[static MAXVERTICES], double rot, isize count, RenderMode render_mode) {
+void init_vertices(gbPlatform* platform, double* xs, double* ys, double rot, isize count, RenderMode render_mode) {
     assert(count < MAXVERTICES);
     if (count == 3 && (render_mode != RM_ROT_CLOCKWISE && render_mode != RM_ROT_COUNTERCLOCKWISE)) {
         xs[0] = 0;

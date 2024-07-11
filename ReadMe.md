@@ -21,6 +21,7 @@ A C Sierpinski thingy
 
 | Key                | Mode                                |
 |--------------------|-------------------------------------|
+| 0                  | Static mode                         |
 | 1                  | Left Right                          |
 | 2                  | Scale                               |
 | 3                  | Scale Coords                        |
@@ -40,7 +41,26 @@ A C Sierpinski thingy
 
 # Gallery 
 
-
+![alt text](./gallery/t.png)
+![alt text](./gallery/l.png)
+![alt text](./gallery/n.png)
+![alt text](./gallery/p.png)
+![alt text](./gallery/r.png)
+![alt text](./gallery/xscale_nodouble.png)
+![alt text](./gallery/render_mode_5.png)
+![alt text](./gallery/Screenshot%202024-07-12%20002243.png)
+![alt text](./gallery/Screenshot%202024-07-12%20001929.png)
+![alt text](./gallery/Screenshot%202024-07-12%20002153.png)
 ## Building
 
-Look at the `build.bat` file.
+```
+clang.exe main.c -luser32 -lgdi32 -lopengl32 -o main.exe
+```
+or
+```
+gcc main.c -luser32 -lgdi32 -lopengl32 -o main.exe
+```
+or
+```
+cl /std:c11 main.c user32.lib gdi32.lib opengl32.lib
+```

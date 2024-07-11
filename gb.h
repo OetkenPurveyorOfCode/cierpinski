@@ -4924,7 +4924,7 @@ GB_ALLOCATOR_PROC(gb_heap_allocator_proc) {
 #else
 	// TODO(bill): *nix version that's decent
 	case gbAllocation_Alloc: {
-		posix_memalign(&ptr, alignment, size);
+		//posix_memalign(&ptr, alignment, size);
 
 		if (flags & gbAllocatorFlag_ClearToZero) {
 			gb_zero_size(ptr, size);

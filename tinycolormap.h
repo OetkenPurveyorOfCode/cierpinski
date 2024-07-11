@@ -105,7 +105,7 @@ inline double tcm_clamp01(double x)
 }
 
 
-tcm_Color tcm_lerp(double x, size_t N, const tcm_Color data[static N])
+tcm_Color tcm_lerp(double x, size_t N, const tcm_Color* data)
 {
     const double a  = tcm_clamp01(x) * (N - 1);
     const double i  = floor(a);
