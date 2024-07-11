@@ -2,44 +2,44 @@
 
 A C Sierpinski thingy
 
-## Modes 
+## Usage
 
-| Key | Mode          |
-|-----|---------------|
-| S   | Scale         |
-| L   | Left&Right    |
-| T   | Scale Coords  |
-| V   | Scale Vertices|
-| C   | Color Mode    |
-| Q   | Quad Mode     |
-| N   | Nodouble      |
-| W   | Last+2 Mode   |
-| E   | Quad Scale I  |
-| R   | Quad Scale II |
-| U   | Quad Vertscale|
-| P   | Penta Mode    |
-| O   | Penta Nodouble|
+#### Config
 
-### Scale mode (Press S)
-![Sierpinski Fractal](s.png)
+| Key                | Mode                                |
+|--------------------|-------------------------------------|
+| C                  | Toggle Colors                       |
+| R                  | Toggle Random/Clear                 |
+| W                  | Increase Speed                      |
+| S                  | Decrease Speed                      |
+| Up Arrow           | Increase Iterations                 |
+| Down Arrow         | Decrease iterations                 |
+| Left Arrow         | Increase Vertices                   |
+| Right Arrow        | Decrease Vertices                   |
 
-### Left right mode (Press L)
-![Sierpinski Fractal](l.png)
+#### Render Mode 
 
-### Scale coord mode (Press T)
-![Sierpinski Fractal](t.png)
+| Key                | Mode                                |
+|--------------------|-------------------------------------|
+| 1                  | Left Right                          |
+| 2                  | Scale                               |
+| 3                  | Scale Coords                        |
+| 4                  | Scale Verts                         |
+| 5                  | Rotate clockwise                    |
+| 6                  | Rotate counter-clockwise            |
+| 7                  | Scale x mode                        |
 
-### Quad mode (Press Q)
-![Sierpinski Fractal](q.png)
+#### Filter Mode
 
-### Nodouble mode (Press N)
-![Sierpinski Fractal](n.png)
+| Key                | Mode                                |
+|--------------------|-------------------------------------|
+| shift+1            | None                                |
+| shift+2            | No double mode                      |
+| shift+3            | Last+2 mode                         |
 
-### Quadscale II mode (Press R)
-![Sierpinski Fractal](r.png)
 
-### Penta Nodouble (Press O)
-![Sierpinski Fractal](o.png)
+# Gallery 
+
 
 ## Building
 

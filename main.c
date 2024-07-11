@@ -4,81 +4,127 @@
 #include "gb.h"
 #include "pcg_basic.h"
 #include "pcg_basic.c"
+
+#define TINYCOLORMAP_IMPLEMENTATION
+#include "tinycolormap.h"
 #include <math.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdio.h>
+
+#define MAXVERTICES 100
 
 void putpixel(gbPlatform* platform, isize x, isize y, u32 color) {
-    assert(0 <= x && x < platform->window_width);
-    assert(0 <= y && y < platform->window_height);
-    ((u32*)platform->sw_framebuffer.memory)[platform->window_width*y+x] = color;
+    if (0 <= x && x < platform->window_width && 0 <= y && y < platform->window_height) {
+        ((u32*)platform->sw_framebuffer.memory)[platform->window_width*y+x] = color;
+    }
 }
 
 void clear(gbPlatform platform) {
     gb_memset(platform.sw_framebuffer.memory, 0, platform.sw_framebuffer.memory_size);
 }
 
-u32 get_color(isize i, bool enable_colors) {
+u32 get_color(isize i, bool enable_colors, isize count) {
     if (!enable_colors) {
-        return 0xFFFFFFFF;
+        return 0x00FFFFFF;
     } else {
-        switch (i) {
-            break;case 0: return 0xFFFF0000;
-            break;case 1: return 0xFF00FF00;
-            break;case 2: return 0xFF0000FF;
-            break;case 3: return 0xFFFFFFFF;
-            break;case 4: return 0xFFFF00FF;
+        if (count < 6) {
+            switch(i) {
+                break;case 0: return 0xFFFF0000;
+                break;case 1: return 0xFF00FF00;
+                break;case 2: return 0xFF0000FF;
+                break;case 3: return 0xFFFFFFFF;
+                break;default: return 0xFFFF00FF;
+            }
+        } else {
+            return tcm_to_argb(tcm_heat((double)i / count));
         }
     }
-    return 0xFFFFFFFF;
 }
 
 typedef enum {
+    RM_STATIC,
     RM_LEFT_RIGHT,
-    RM_SCALE,
-    RM_SCALECOORD,
-    RM_SCALEVERT,
-    RM_SQUARE,
-    RM_NODOUBLE,
-    RM_LAST_PLUS_ONE,
-    RM_QSCALE,
-    RM_RSCALE,
-    RM_ZSCALE,
-    RM_PENTA,
-    RM_PENTA_NODOUBLE
+    RM_JUSTSCALE,
+    RM_SCALE_COORD,
+    RM_SCALE_VERT,
+    RM_ROT_CLOCKWISE,
+    RM_ROT_COUNTERCLOCKWISE,
+    RM_SCALE_X
 } RenderMode;
 
+typedef enum {
+    FM_NONE,
+    FM_NODOUBLE,
+    FM_LAST_PLUS_TWO,
+} FilterMode;
+
 typedef struct {
-    RenderMode mode;
+    RenderMode render_mode;
+    FilterMode filter_mode;
     bool enable_colors;
+    bool clearbg;
+    float ifactor;
+    isize vertices;
+    double rot;
+    double speed;
 } App;
+
+void init_vertices(gbPlatform* platform, double xs[static MAXVERTICES], double ys[static MAXVERTICES], double rot, isize count, RenderMode render_mode) {
+    assert(count < MAXVERTICES);
+    if (count == 3 && (render_mode != RM_ROT_CLOCKWISE && render_mode != RM_ROT_COUNTERCLOCKWISE)) {
+        xs[0] = 0;
+        xs[1] = platform->window_width/2;
+        xs[2] = platform->window_width;
+        ys[0] = 0;
+        ys[1] = platform->window_height;
+        ys[2] = 0;
+        return;
+    }
+    else if (count == 4 && (render_mode != RM_ROT_CLOCKWISE && render_mode != RM_ROT_COUNTERCLOCKWISE)) {
+        xs[0] = xs[3] = 0;
+        ys[0] = ys[1] = platform->window_height;
+        xs[1] = xs[2] = platform->window_width;
+        ys[2] = ys[3] = 0;
+        return;
+    }
+    else {
+        double r = gb_min(platform->window_width/2, platform->window_height/2);
+        for (int i = 0; i < count; i++) {
+            xs[i] = r*cosf(6.28/count*(i+rot))+ platform->window_width/2;
+            ys[i] = r*sinf(6.28/count*(i+rot))+ platform->window_height/2;
+        }
+        return;
+    }
+}
 
 #ifdef MAIN 
 int main(void) {
 #else
 int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int       nShowCmd) { 
+    (void)hInstance, (void)hPrevInstance, (void)lpCmdLine, (void)nShowCmd;
 #endif
     App app = {
-        .mode=RM_LEFT_RIGHT, .enable_colors=true,
+        .render_mode=RM_LEFT_RIGHT,
+        .filter_mode=FM_NONE,
+        .clearbg = false,
+        .enable_colors=true,
+        .vertices = 3,
+        .rot = 0,
+        .ifactor = 1,
+        .speed = 1,
     };
     gbPlatform platform = {0};
     gb_platform_init_with_software(&platform, "Cierpinski", 800, 600, gbWindow_Resizable);
-    GB_ASSERT(platform.sw_framebuffer.bits_per_pixel == 32);
-    GB_ASSERT(platform.sw_framebuffer.memory_size == platform.window_height * platform.window_width * platform.sw_framebuffer.bits_per_pixel / 8);
+    assert(platform.sw_framebuffer.bits_per_pixel == 32);
+    assert(platform.sw_framebuffer.memory_size == platform.window_height * platform.window_width * platform.sw_framebuffer.bits_per_pixel / 8);
     gb_platform_display(&platform);
     i32 old_window_height = platform.window_height;
     i32 old_window_width = platform.window_width;
-    double xs[] = {0, platform.window_width/2, platform.window_width-1};
-    double ys[] = {0, platform.window_height-1, 0};
-    double square_xs[] = {0, 0,                      platform.window_width, platform.window_width };
-    double square_ys[] = {0, platform.window_height, 0,                     platform.window_height};
-    double r = gb_min(platform.window_width/2, platform.window_height/2);
-    double penta_xs[5];
-    double penta_ys[5];
-    for (int i = 0; i < 5; i++) {
-        penta_xs[i] = r*cosf(6.28/5*i)+ platform.window_width/2;
-        penta_ys[i] = r*sinf(6.28/5*i)+ platform.window_height/2;
-    }
+
+    double xs[MAXVERTICES] = {0};
+    double ys[MAXVERTICES] = {0};
+    init_vertices(&platform, xs, ys, app.rot, app.vertices, app.render_mode);
     double x = 0;
     double y = 0;
     double counter = 0;
@@ -87,249 +133,159 @@ int WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR     lpCmdLine,int 
         if (was_resized) {
             old_window_height = platform.window_height;
             old_window_width = platform.window_width;
-            xs[1] = platform.window_width / 2;
-            xs[2] = platform.window_width - 1;
-            ys[1] = platform.window_height - 1;
-            square_xs[2] = square_xs[3] = platform.window_width;
-            square_ys[1] = square_ys[3] = platform.window_height;
-            x = 0;
-            y = 0;
-
-            double r = gb_min(platform.window_width/2, platform.window_height/2);
-            for (int i = 0; i < 5; i++) {
-                penta_xs[i] = r*cosf(6.28/5*i)+ platform.window_width/2;
-                penta_ys[i] = r*sinf(6.28/5*i)+ platform.window_height/2;
-            }
             clear(platform);
         }
+
         //input
-        if (platform.keys['S'] == gbKeyState_Down) {
-            app.mode = RM_SCALE;
-        }
-        if (platform.keys['L'] == gbKeyState_Down) {
-            app.mode = RM_LEFT_RIGHT;
-        }
-        if (platform.keys['T'] == gbKeyState_Down) {
-            app.mode = RM_SCALECOORD;
-        }
-        if (platform.keys['V'] == gbKeyState_Down) {
-            app.mode = RM_SCALEVERT;
-        }
+        // config
         if (platform.keys['C'] == gbKeyState_Released) {
             app.enable_colors = !app.enable_colors;
         }
-        if (platform.keys['Q'] == gbKeyState_Released) {
-            app.mode = RM_SQUARE;
-        }
-        if (platform.keys['N'] == gbKeyState_Released) {
-            app.mode = RM_NODOUBLE;
+        if (platform.keys['R'] == gbKeyState_Released) {
+            app.clearbg = !app.clearbg;
         }
         if (platform.keys['W'] == gbKeyState_Released) {
-            app.mode = RM_LAST_PLUS_ONE;
+            app.speed *= 1.2;
         }
-        if (platform.keys['E'] == gbKeyState_Released) {
-            app.mode = RM_QSCALE;
+        if (platform.keys['S'] == gbKeyState_Released) {
+            app.speed /= 1.2;
         }
-        if (platform.keys['R'] == gbKeyState_Released) {
-            app.mode = RM_RSCALE;
+        if (platform.keys[gbKey_Up] == gbKeyState_Released) {
+            app.ifactor *= 1.2;
         }
-        if (platform.keys['U'] == gbKeyState_Released) {
-            app.mode = RM_ZSCALE;
+        if (platform.keys[gbKey_Down] == gbKeyState_Released) {
+            app.ifactor /= 1.2;
         }
-        if (platform.keys['P'] == gbKeyState_Released) {
-            app.mode = RM_PENTA;
+        if (platform.keys[gbKey_Left] == gbKeyState_Released) {
+            if (3 <= app.vertices && app.vertices < MAXVERTICES) {
+                app.vertices -= 1;
+            }  
         }
-        if (platform.keys['O'] == gbKeyState_Released) {
-            app.mode = RM_PENTA_NODOUBLE;
+        if (platform.keys[gbKey_Right] == gbKeyState_Released) {
+            if (2 <= app.vertices && app.vertices+1 < MAXVERTICES) {
+                app.vertices += 1;
+            }  
         }
 
-        //render
+        // mode
+        if (platform.keys[gbKey_Lshift] != gbKeyState_Down && platform.keys[gbKey_Rshift] != gbKeyState_Down) {
+            //render mode
+            if (platform.keys[gbKey_0] == gbKeyState_Down) {
+                app.render_mode = RM_STATIC;
+            }
+            if (platform.keys[gbKey_1] == gbKeyState_Down) {
+                app.render_mode = RM_LEFT_RIGHT;
+            }
+            if (platform.keys[gbKey_2] == gbKeyState_Down) {
+                app.render_mode = RM_JUSTSCALE;
+            }
+            if (platform.keys[gbKey_3] == gbKeyState_Down) {
+                app.render_mode = RM_SCALE_COORD;
+            }
+            if (platform.keys[gbKey_4] == gbKeyState_Down) {
+                app.render_mode = RM_SCALE_VERT;
+            }
+            if (platform.keys[gbKey_5] == gbKeyState_Down) {
+                app.render_mode = RM_ROT_CLOCKWISE;
+            }
+            if (platform.keys[gbKey_6] == gbKeyState_Down) {
+                app.render_mode = RM_ROT_COUNTERCLOCKWISE;
+            }
+            if (platform.keys[gbKey_7] == gbKeyState_Down) {
+                app.render_mode = RM_SCALE_X;
+            }
+        }
+        else {
+            // filter mode
+            if (platform.keys[gbKey_1] == gbKeyState_Down) {
+                app.filter_mode = FM_NONE;
+            }
+            if (platform.keys[gbKey_2] == gbKeyState_Down) {
+                app.filter_mode = FM_NODOUBLE;
+            }
+            if (platform.keys[gbKey_3] == gbKeyState_Down) {
+                app.filter_mode = FM_LAST_PLUS_TWO;
+            }
+        }
 
-        switch (app.mode) {
-            break;case RM_SCALE: {
-                double scale = (sin((double)counter) + 3);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(3);
+        //rendering
+
+        isize iter = platform.window_width * app.ifactor *  platform.window_height / 70;
+        if (app.clearbg) {
+            clear(platform);
+        }
+        else {
+            for(isize it = 0; it < iter; it++) {
+                putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
+            }
+        }
+        double scale;
+        if (app.render_mode == RM_ROT_CLOCKWISE) {
+            app.rot = counter;
+        }
+        if (app.render_mode == RM_ROT_COUNTERCLOCKWISE) {
+            app.rot = -counter;
+        }
+        if (app.render_mode == RM_JUSTSCALE) {
+            scale = (sin((double)counter) + 3);
+            app.rot = 0;
+        }
+        if (app.render_mode == RM_SCALE_COORD || app.render_mode == RM_SCALE_VERT) {
+            scale = 4*(sin((double)counter) + 1);
+            app.rot = 0;
+        }
+        if (app.render_mode == RM_SCALE_X) {
+            scale = 4*(sin((double)counter) + 1);
+            app.rot = 0;
+        }
+        init_vertices(&platform, xs, ys, app.rot, app.vertices, app.render_mode);
+        if (app.render_mode == RM_LEFT_RIGHT) {
+            xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
+            app.rot = 0;
+        }
+        isize last_i = 0;
+        for(isize it = 0; it < iter; it++) {
+            isize i = pcg32_boundedrand(app.vertices);
+            bool ok = true;
+            switch (app.filter_mode) {
+                break;case FM_NONE: {
+                    ok = true;
+                }
+                break;case FM_NODOUBLE: {
+                    ok = (i != last_i);
+                }
+                break;case FM_LAST_PLUS_TWO: {
+                    ok = (i == (last_i + 2) % 4);
+                }
+            }
+            last_i = i;
+            if (ok) {
+                if (app.render_mode == RM_JUSTSCALE) {
                     x = (x + xs[i])/scale;
                     y = (y + ys[i])/scale;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_LEFT_RIGHT: {
-                xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(3);
-                    x = (x + xs[i])/2;
-                    y = (y + ys[i])/2;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_SCALECOORD: {
-                double scale = 4*(sin((double)counter) + 1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(3);
+                }
+                else if (app.render_mode == RM_SCALE_COORD) {
                     x = (scale*x + xs[i])/(1+scale);
                     y = (scale*y + ys[i])/(1+scale);
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_SCALEVERT: {
-                double scale = 4*(sin((double)counter) + 1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(3);
+                }
+                else if (app.render_mode == RM_SCALE_VERT) {
                     x = (x + scale*xs[i])/(1+scale);
                     y = (y + scale*ys[i])/(1+scale);
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
+                }
+                else if (app.render_mode == RM_SCALE_X) {
+                    x = (x + scale*xs[i])/(scale+1);
+                    y = (y + ys[i])/2;
+                }
+                else { // left right, rotate
+                    x = (x + xs[i])/2;
+                    y = (y + ys[i])/2;
+                }
             }
-            break;case RM_SQUARE: {
-                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    x = (x + square_xs[i])/2;
-                    y = (y + square_ys[i])/2;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_NODOUBLE: {
-                isize last_i = 0;
-                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    if (i != last_i) {
-                        x = (x + square_xs[i])/2;
-                        y = (y + square_ys[i])/2;
-                    }
-                    last_i = i;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_LAST_PLUS_ONE: {
-                isize last_i = 0;
-                square_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    if (i == (last_i + 2) % 4) {
-                        x = (x + square_xs[i])/2;
-                        y = (y + square_ys[i])/2;
-                    }
-                    last_i = i;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_QSCALE: {
-                isize last_i = 0;
-                double scale = 4*(sin((double)counter) + 1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    if (i == (last_i + 2) % 4) {
-                        x = (x + scale*square_xs[i])/(scale+1);
-                        y = (y + square_ys[i])/2;
-                    }
-                    last_i = i;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_RSCALE: {
-                isize last_i = 0;
-                double scale = 4*(sin((double)counter) + 1.1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    if (i != last_i && i != last_i + 1) {
-                        x = (scale*x + square_xs[i])/(scale+1);
-                        y = (scale*y + square_ys[i])/(scale+1);
-                    }
-                    last_i = i;
-                    putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_ZSCALE: {
-                double scale = 4*(sin((double)counter) + 1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(4);
-                    x = (x + scale*square_xs[i])/(scale+1);
-                    y = (y + scale*square_ys[i])/(scale+1);
-                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
-                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    }
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_PENTA: {
-                double scale = 4*(sin((double)counter) + 1);
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(5);
-                    x = (x + scale*penta_xs[i])/(scale+1);
-                    y = (y + scale*penta_ys[i])/(scale+1);
-                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
-                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    }
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-            break;case RM_PENTA_NODOUBLE: {
-                isize last_i = 0;
-                penta_xs[1] = (sin((double)counter)*(platform.window_width-1))/2+platform.window_width/2;
-                for(isize it = 0; it < 10000; it++) {
-                    isize i = pcg32_boundedrand(5);
-                    if (i != last_i) {
-                        x = (x + penta_xs[i])/2;
-                        y = (y + penta_ys[i])/2;
-                    }
-                    last_i = i;
-                    if (0 <= x && x < platform.window_width && 0 <= y && y < platform.window_height) {
-                        putpixel(&platform, x, y, get_color(i, app.enable_colors));
-                    }
-                    putpixel(&platform, pcg32_boundedrand(platform.window_width), pcg32_boundedrand(platform.window_height), 0);
-                };
-                counter += 1e-3;
-                gb_platform_update(&platform);
-                gb_platform_display(&platform);
-            }
-        }
-
+            putpixel(&platform, x, y, get_color(i, app.enable_colors, app.vertices));
+        };
+        counter += 1e-3 *app.speed;
+        gb_platform_update(&platform);
+        gb_platform_display(&platform);
     };
     gb_platform_destroy(&platform);
     return 0;
